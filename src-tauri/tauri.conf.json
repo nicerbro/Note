@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Floating Note",
+  "version": "1.0.0",
+  "identifier": "com.floatingnote.desktop",
+  "build": {
+    "frontendDist": "../frontend"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "",
+        "width": 420,
+        "height": 610,
+        "minWidth": 360,
+        "minHeight": 500,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "resizable": true,
+        "skipTaskbar": true,
+        "visible": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": [
+      "../assets/images/app-tray.ico",
+      "../assets/images/app-icon.ico",
+      "../assets/images/app-icon.png"
+    ],
+    "icon": [
+      "../assets/images/app-icon.ico",
+      "../assets/images/app-icon.png"
+    ]
+  }
+}
