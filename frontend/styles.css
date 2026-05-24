@@ -13,7 +13,7 @@
       --radius-xl: 16px;
       --radius-lg: 12px;
       --shadow: 0 16px 40px rgba(42, 47, 56, 0.09);
-      --window-shadow-space: 20px;
+      --window-shadow-space: 0px;
       font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color: var(--ink);
       background: var(--page);
@@ -97,13 +97,13 @@
 
     .desktop-shell .floating-note {
       position: fixed;
-      top: calc(var(--window-shadow-space) - 1px);
+      top: 0;
       right: 0;
       bottom: 0;
       left: 0;
       width: auto;
       height: auto;
-      inset: calc(var(--window-shadow-space) - 1px) var(--window-shadow-space) var(--window-shadow-space);
+      inset: 0;
       border: 1px solid #e3e6eb;
       border-radius: var(--radius-xl);
       overflow: hidden;
