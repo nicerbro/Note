@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{
@@ -55,6 +56,31 @@ fn data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     .app_data_dir()
     .map_err(|error| error.to_string())
     .map(|path| path.join("data"))
+}
+
+fn note_resources_dir(app: &tauri::AppHandle, note_id: &str) -> Result<PathBuf, String> {
+  let safe_note_id = safe_path_segment(note_id);
+  data_dir(app).map(|path| path.join("note-resources").join(safe_note_id))
+}
+
+fn safe_path_segment(value: &str) -> String {
+  let safe: String = value
+    .chars()
+    .map(|character| {
+      if character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.') {
+        character
+      } else {
+        '_'
+      }
+    })
+    .collect();
+
+  let trimmed = safe.trim_matches('.').trim_matches('_');
+  if trimmed.is_empty() {
+    "asset".to_string()
+  } else {
+    trimmed.to_string()
+  }
 }
 
 fn read_json(path: &Path) -> Result<Option<Value>, String> {
@@ -134,6 +160,86 @@ fn storage_save(app: tauri::AppHandle, data: Value) -> Result<bool, String> {
   write_json(&dir.join(TASKS_FILE), &tasks)?;
   write_json(&dir.join(SETTINGS_FILE), &settings)?;
   Ok(true)
+}
+
+#[tauri::command]
+fn note_image_save(
+  app: tauri::AppHandle,
+  note_id: String,
+  file_name: String,
+  data_url: String,
+) -> Result<Value, String> {
+  let comma_index = data_url
+    .find(',')
+    .ok_or_else(|| "Invalid image data URL.".to_string())?;
+  let header = &data_url[..comma_index];
+  let encoded = &data_url[comma_index + 1..];
+  if !header.starts_with("data:image/") || !header.contains(";base64") {
+    return Err("Only base64 image data URLs are supported.".to_string());
+  }
+
+  let extension = header
+    .trim_start_matches("data:image/")
+    .split(';')
+    .next()
+    .unwrap_or("png");
+  let extension = match extension {
+    "jpeg" => "jpg",
+    "png" | "jpg" | "gif" | "webp" | "svg+xml" => extension,
+    _ => "png",
+  };
+  let extension = if extension == "svg+xml" { "svg" } else { extension };
+  let stem = Path::new(&file_name)
+    .file_stem()
+    .and_then(|value| value.to_str())
+    .map(safe_path_segment)
+    .unwrap_or_else(|| "image".to_string());
+  let stored_name = format!("{}-{}.{}", chrono_like_timestamp(), stem, extension);
+  let dir = note_resources_dir(&app, &note_id)?;
+  fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+  let bytes = general_purpose::STANDARD
+    .decode(encoded)
+    .map_err(|error| error.to_string())?;
+  fs::write(dir.join(&stored_name), bytes).map_err(|error| error.to_string())?;
+
+  Ok(json!({
+    "id": stored_name,
+    "name": file_name,
+    "fileName": stored_name,
+    "markdownPath": format!("note-resource://{}/{}", safe_path_segment(&note_id), stored_name),
+    "src": data_url
+  }))
+}
+
+#[tauri::command]
+fn note_image_load(app: tauri::AppHandle, note_id: String, file_name: String) -> Result<String, String> {
+  let safe_name = safe_path_segment(&file_name);
+  let path = note_resources_dir(&app, &note_id)?.join(safe_name);
+  let bytes = fs::read(&path).map_err(|error| error.to_string())?;
+  let extension = path
+    .extension()
+    .and_then(|value| value.to_str())
+    .unwrap_or("png")
+    .to_lowercase();
+  let mime = match extension.as_str() {
+    "jpg" | "jpeg" => "image/jpeg",
+    "gif" => "image/gif",
+    "webp" => "image/webp",
+    "svg" => "image/svg+xml",
+    _ => "image/png",
+  };
+  Ok(format!(
+    "data:{};base64,{}",
+    mime,
+    general_purpose::STANDARD.encode(bytes)
+  ))
+}
+
+fn chrono_like_timestamp() -> u128 {
+  std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|duration| duration.as_millis())
+    .unwrap_or(0)
 }
 
 #[tauri::command]
@@ -296,9 +402,19 @@ fn toggle_main_window(app: &tauri::AppHandle) {
 
   match window.is_visible() {
     Ok(true) => {
-      let _ = window.hide();
+      match window.is_focused() {
+        Ok(true) => {
+          let _ = window.hide();
+        }
+        _ => {
+          let _ = window.unminimize();
+          let _ = window.show();
+          let _ = window.set_focus();
+        }
+      }
     }
     Ok(false) => {
+      let _ = window.unminimize();
       let _ = window.show();
       let _ = window.set_focus();
     }
@@ -349,12 +465,22 @@ fn setup_shortcuts(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Err
   Ok(())
 }
 
+fn apply_initial_window_size(app: &tauri::AppHandle) {
+  let Some(window) = app.get_webview_window("main") else {
+    return;
+  };
+  let size = PhysicalSize::new(902, 1128);
+  let _ = window.set_min_size(Some(size));
+  let _ = window.set_size(size);
+}
+
 fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_global_shortcut::Builder::new().build())
     .manage(MoveState::default())
     .manage(ResizeState::default())
     .setup(|app| {
+      apply_initial_window_size(app.handle());
       setup_tray(app.handle())?;
       setup_shortcuts(app.handle())?;
       Ok(())
@@ -362,6 +488,8 @@ fn main() {
     .invoke_handler(tauri::generate_handler![
       storage_load,
       storage_save,
+      note_image_save,
+      note_image_load,
       window_set_always_on_top,
       window_hide,
       window_start_dragging,

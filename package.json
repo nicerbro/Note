@@ -1,6 +1,6 @@
 {
   "name": "floating-note-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A lightweight floating notes and tasks desktop app.",
   "private": true,
   "scripts": {

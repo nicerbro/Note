@@ -1,6 +1,6 @@
 [package]
 name = "floating-note-desktop"
-version = "1.0.0"
+version = "1.0.1"
 description = "A lightweight floating notes and tasks desktop app."
 authors = ["Floating Note"]
 license = ""
@@ -16,3 +16,4 @@ serde_json = "1"
 tauri = { version = "2", features = ["tray-icon", "image-ico"] }
 tauri-runtime = "2"
 tauri-plugin-global-shortcut = "2.3.1"
+base64 = "0.22"

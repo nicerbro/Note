@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -19,7 +19,7 @@
           </button>
           <button class="segment" type="button" data-mode="tasks" aria-pressed="false">
             <img class="task-tab-icon" src="assets/images/_listtwo1.png" alt="" aria-hidden="true">
-            任务
+            待办
           </button>
         </nav>
 
@@ -45,6 +45,13 @@
 
     <button class="launcher" type="button" id="launcher">打开浮空笔记</button>
   </main>
+
+  <div class="image-preview-layer no-drag" id="imagePreviewLayer" hidden>
+    <div class="image-preview-dialog" role="dialog" aria-modal="true" aria-label="图片预览">
+      <button class="image-preview-close" type="button" aria-label="关闭图片预览">×</button>
+      <img id="imagePreviewImg" src="" alt="">
+    </div>
+  </div>
 
   <template id="editIcon">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">

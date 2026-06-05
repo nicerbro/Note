@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>笔记编辑交互原型</title>
+  <style>
+    :root {
+      --page: #f4f6f9;
+      --panel: #eef1f5;
+      --surface: #ffffff;
+      --field: #f8f9fb;
+      --ink: #2f3137;
+      --muted: #8e97a5;
+      --soft: #c3cad4;
+      --line: #e3e6eb;
+      --active: #3f4048;
+      --danger: #ee5b61;
+      --ok: #4d9078;
+      --radius-xl: 18px;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--page);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(238, 241, 245, 0.4)),
+        var(--page);
+    }
+
+    button,
+    input,
+    [contenteditable] {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .stage {
+      width: min(100vw, 920px);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+    }
+
+    .app {
+      width: min(760px, calc(100vw - 28px));
+      height: min(940px, calc(100vh - 28px));
+      min-height: 650px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--panel);
+      box-shadow: 0 18px 44px rgba(42, 47, 56, 0.12);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow: hidden;
+    }
+
+    .topbar,
+    .detail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex: 0 0 auto;
+    }
+
+    .segmented {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 56px;
+      padding: 4px;
+      border-radius: 999px;
+      background: #f8f9fb;
+    }
+
+    .segment,
+    .round-btn,
+    .tool-btn,
+    .back-btn,
+    .edit-btn,
+    .danger-btn,
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+    }
+
+    .segment {
+      height: 48px;
+      min-width: 112px;
+      padding: 0 20px;
+      border-radius: 999px;
+      background: transparent;
+      color: #4f5662;
+      font-size: 25px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .segment.is-active {
+      background: var(--active);
+      color: #fff;
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .window-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .round-btn {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      color: var(--active);
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .round-btn:hover,
+    .tool-btn:hover,
+    .back-btn:hover,
+    .edit-btn:hover {
+      transform: translateY(-1px);
+      background: #fff;
+    }
+
+    .icon {
+      width: 26px;
+      height: 26px;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex: 0 0 auto;
+    }
+
+    .home-tools {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      flex: 0 0 auto;
+    }
+
+    .search,
+    .title-input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      color: var(--ink);
+      background: var(--field);
+    }
+
+    .search {
+      height: 60px;
+      border-radius: 999px;
+      padding: 0 28px;
+      font-size: 25px;
+    }
+
+    .search::placeholder,
+    .title-input::placeholder {
+      color: #c5ccd7;
+    }
+
+    .primary-btn {
+      height: 60px;
+      min-width: 160px;
+      padding: 0 26px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--active);
+      font-size: 25px;
+      white-space: nowrap;
+    }
+
+    .primary-btn:hover,
+    .edit-btn.is-primary:hover {
+      background: #303139;
+    }
+
+    .view {
+      min-height: 0;
+      flex: 1 1 auto;
+      display: none;
+    }
+
+    .view.is-active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .note-list {
+      min-height: 0;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-right: 4px;
+    }
+
+    .note-card {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      padding: 20px 22px 22px;
+      text-align: left;
+      color: inherit;
+      box-shadow: none;
+      border: 1px solid transparent;
+    }
+
+    .note-card:hover {
+      border-color: var(--line);
+      box-shadow: 0 10px 22px rgba(42, 47, 56, 0.06);
+    }
+
+    .note-meta,
+    .detail-meta,
+    .save-state {
+      color: #9ba4b2;
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    .note-title {
+      margin: 12px 86px 12px 0;
+      font-size: 26px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: #2d3037;
+    }
+
+    .note-summary {
+      max-height: 132px;
+      overflow: hidden;
+      color: #555d69;
+      font-size: 22px;
+      line-height: 1.55;
+    }
+
+    .note-summary strong {
+      color: #2f3137;
+    }
+
+    .note-summary ul {
+      margin: 8px 0 0;
+      padding-left: 24px;
+    }
+
+    .card-actions {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .mini-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      color: #3f4048;
+      background: transparent;
+      display: inline-grid;
+      place-items: center;
+    }
+
+    .mini-btn:hover {
+      background: #f2f4f7;
+    }
+
+    .mini-btn.is-danger,
+    .danger-btn {
+      color: #fff;
+      background: var(--danger);
+    }
+
+    .detail {
+      min-height: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .back-btn {
+      height: 46px;
+      padding: 0 18px;
+      border-radius: 999px;
+      color: #4e5662;
+      background: rgba(255, 255, 255, 0.66);
+      font-size: 20px;
+    }
+
+    .detail-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .edit-btn,
+    .danger-btn {
+      height: 46px;
+      padding: 0 18px;
+      border-radius: 999px;
+      font-size: 20px;
+      white-space: nowrap;
+    }
+
+    .edit-btn {
+      color: #424956;
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .edit-btn.is-primary {
+      color: #fff;
+      background: var(--active);
+    }
+
+    .danger-btn {
+      min-width: 92px;
+    }
+
+    .title-input {
+      height: 70px;
+      border-radius: var(--radius-lg);
+      padding: 0 22px;
+      font-size: 32px;
+      font-weight: 700;
+      background: var(--surface);
+    }
+
+    .preview-title {
+      margin: 0;
+      padding: 20px 22px 0;
+      color: #2d3037;
+      font-size: 32px;
+      line-height: 1.25;
+    }
+
+    .preview-card,
+    .editor-card {
+      min-height: 0;
+      flex: 1 1 auto;
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-body,
+    .editor {
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: auto;
+      padding: 22px;
+      color: #4f5764;
+      font-size: 23px;
+      line-height: 1.7;
+    }
+
+    .preview-body h2,
+    .editor h2 {
+      margin: 8px 0 10px;
+      color: #2f3137;
+      font-size: 28px;
+      line-height: 1.25;
+    }
+
+    .preview-body blockquote,
+    .editor blockquote {
+      margin: 14px 0;
+      padding: 10px 16px;
+      border-left: 4px solid #cbd3df;
+      background: #f7f9fb;
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    }
+
+    .preview-body ul,
+    .preview-body ol,
+    .editor ul,
+    .editor ol {
+      padding-left: 28px;
+    }
+
+    .preview-body img,
+    .editor img {
+      max-width: 100%;
+      border-radius: var(--radius-md);
+      display: block;
+      margin: 14px 0;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid #edf0f4;
+    }
+
+    .tool-menu {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .tool-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 5;
+      min-width: 74px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 12px 26px rgba(42, 47, 56, 0.12);
+      display: grid;
+      gap: 4px;
+    }
+
+    .tool-dropdown[hidden] {
+      display: none;
+    }
+
+    .tool-option {
+      height: 34px;
+      border-radius: 9px;
+      color: #4d5562;
+      background: transparent;
+      font-weight: 700;
+      text-align: left;
+      padding: 0 10px;
+    }
+
+    .tool-option:hover,
+    .tool-option.is-active {
+      color: #fff;
+      background: var(--active);
+    }
+
+    .tool-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      color: #4d5562;
+      background: #f6f7f9;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .tool-btn.is-active {
+      color: #fff;
+      background: var(--active);
+    }
+
+    .tool-sep {
+      width: 1px;
+      height: 24px;
+      background: var(--line);
+      margin: 0 2px;
+    }
+
+    .editor {
+      outline: 0;
+    }
+
+    .editor:empty::before {
+      content: "开始写笔记...";
+      color: #c3cad4;
+    }
+
+    .detail-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex: 0 0 auto;
+    }
+
+    .resource-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: #7f8896;
+      font-size: 16px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 620px) {
+      .stage {
+        padding: 0;
+      }
+
+      .app {
+        width: 100vw;
+        height: 100vh;
+        min-height: 0;
+        border-radius: 0;
+        border: 0;
+        padding: 14px;
+      }
+
+      .segment {
+        min-width: 82px;
+        padding: 0 14px;
+        font-size: 20px;
+      }
+
+      .round-btn {
+        width: 50px;
+        height: 50px;
+      }
+
+      .home-tools {
+        grid-template-columns: 1fr;
+      }
+
+      .primary-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="app" aria-label="笔记编辑交互原型">
+      <div class="view is-active" id="homeView">
+        <header class="topbar">
+          <nav class="segmented" aria-label="模式切换">
+            <button class="segment is-active" type="button" aria-pressed="true">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2Z"></path><path d="M9 8h5M9 12h6"></path></svg>
+              笔记
+            </button>
+            <button class="segment" type="button" aria-pressed="false">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M9 7h11M9 12h11M9 17h11"></path><path d="m4 7 1 1 2-2M4 12l1 1 2-2M4 17l1 1 2-2"></path></svg>
+              任务
+            </button>
+          </nav>
+          <div class="window-actions">
+            <button class="round-btn" type="button" aria-label="置顶">
+              <svg class="icon" viewBox="0 0 24 24"><path d="m14 4 6 6"></path><path d="M5 19 19 5"></path><path d="m6 12 6 6"></path><path d="m8 10-3 3 6 6 3-3"></path></svg>
+            </button>
+            <button class="round-btn" type="button" aria-label="关闭">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="home-tools">
+          <input class="search" id="searchInput" type="search" placeholder="搜索笔记" aria-label="搜索笔记">
+          <button class="primary-btn" id="createBtn" type="button">新建笔记</button>
+        </div>
+
+        <div class="note-list" id="noteList" aria-label="笔记列表"></div>
+      </div>
+
+      <div class="view" id="detailView">
+        <section class="detail">
+          <header class="detail-head">
+            <button class="back-btn" id="backBtn" type="button">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M15 18 9 12l6-6"></path></svg>
+              返回
+            </button>
+            <div class="detail-actions">
+              <button class="edit-btn" id="editBtn" type="button">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"></path></svg>
+                编辑
+              </button>
+              <button class="danger-btn" id="deleteBtn" type="button">删除</button>
+            </div>
+          </header>
+
+          <div class="detail-meta" id="detailMeta"></div>
+
+          <div class="preview-card" id="previewPane">
+            <h1 class="preview-title" id="previewTitle"></h1>
+            <div class="preview-body" id="previewBody"></div>
+          </div>
+
+          <div class="editor-card hidden" id="editorPane">
+            <input class="title-input" id="titleInput" type="text" placeholder="笔记标题">
+            <div class="toolbar" role="toolbar" aria-label="富文本工具栏">
+              <button class="tool-btn" type="button" data-command="bold" title="加粗">B</button>
+              <button class="tool-btn" type="button" data-command="italic" title="斜体"><em>I</em></button>
+              <button class="tool-btn" type="button" data-command="underline" title="下划线"><u>U</u></button>
+              <button class="tool-btn" type="button" data-command="strikeThrough" title="删除线"><s>S</s></button>
+              <span class="tool-sep"></span>
+              <span class="tool-menu" id="headingMenu">
+                <button class="tool-btn" id="headingBtn" type="button" title="标题" aria-haspopup="true" aria-expanded="false">H</button>
+                <span class="tool-dropdown" id="headingDropdown" hidden>
+                  <button class="tool-option" type="button" data-format="p">正文</button>
+                  <button class="tool-option" type="button" data-format="h1">H1</button>
+                  <button class="tool-option" type="button" data-format="h2">H2</button>
+                  <button class="tool-option" type="button" data-format="h3">H3</button>
+                </span>
+              </span>
+              <button class="tool-btn" type="button" data-command="insertUnorderedList" title="无序列表">•</button>
+              <button class="tool-btn" type="button" data-command="insertOrderedList" title="有序列表">1.</button>
+              <button class="tool-btn" type="button" data-action="todo" title="待办清单">☑</button>
+              <button class="tool-btn" type="button" data-action="quote" title="引用">❝</button>
+              <button class="tool-btn" type="button" data-command="insertHorizontalRule" title="分割线">—</button>
+              <span class="tool-sep"></span>
+              <button class="tool-btn" type="button" data-action="image" title="上传图片">图</button>
+              <button class="tool-btn" type="button" data-command="undo" title="撤销">↶</button>
+              <button class="tool-btn" type="button" data-command="redo" title="重做">↷</button>
+            </div>
+            <div class="editor" id="editor" contenteditable="true" spellcheck="false"></div>
+            <input class="hidden" id="imageInput" type="file" accept="image/*">
+          </div>
+
+          <footer class="detail-foot">
+            <span class="save-state" id="saveState">已保存</span>
+            <span class="resource-chip">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path></svg>
+              图片保存到笔记资源目录
+            </span>
+          </footer>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const notes = [
+      {
+        id: "n1",
+        title: "账号",
+        createdAt: "2026/5/16 09:20",
+        updatedAt: "2026/5/24 21:50",
+        html: `
+          <h2>SE</h2>
+          <p><strong>账号：</strong> zhangruihan<br><strong>密码：</strong> ********</p>
+          <blockquote>点击卡片只进入预览态，点击编辑按钮才激活编辑。</blockquote>
+          <ul><li><strong>自动保存</strong> 已启用</li><li>图片保存到笔记资源目录</li></ul>
+        `
+      },
+      {
+        id: "n2",
+        title: "笔记编辑优化",
+        createdAt: "2026/5/24 20:38",
+        updatedAt: "2026/5/24 21:50",
+        html: `
+          <h2>详情页交互</h2>
+          <p>同一个独立页面同时承载预览态和编辑态。预览态不显示工具栏，编辑态显示所见即所得编辑器。</p>
+          <ul><li>Esc 返回首页</li><li>新建默认聚焦标题</li><li>首页摘要渲染部分 Markdown 样式</li></ul>
+        `
+      }
+    ];
+
+    const state = {
+      route: "home",
+      activeId: null,
+      editing: false,
+      saveTimer: null
+    };
+
+    const homeView = document.querySelector("#homeView");
+    const detailView = document.querySelector("#detailView");
+    const noteList = document.querySelector("#noteList");
+    const searchInput = document.querySelector("#searchInput");
+    const createBtn = document.querySelector("#createBtn");
+    const backBtn = document.querySelector("#backBtn");
+    const editBtn = document.querySelector("#editBtn");
+    const deleteBtn = document.querySelector("#deleteBtn");
+    const detailMeta = document.querySelector("#detailMeta");
+    const previewPane = document.querySelector("#previewPane");
+    const editorPane = document.querySelector("#editorPane");
+    const previewTitle = document.querySelector("#previewTitle");
+    const previewBody = document.querySelector("#previewBody");
+    const titleInput = document.querySelector("#titleInput");
+    const editor = document.querySelector("#editor");
+    const saveState = document.querySelector("#saveState");
+    const imageInput = document.querySelector("#imageInput");
+    const headingMenu = document.querySelector("#headingMenu");
+    const headingBtn = document.querySelector("#headingBtn");
+    const headingDropdown = document.querySelector("#headingDropdown");
+
+    function currentNote() {
+      return notes.find((note) => note.id === state.activeId);
+    }
+
+    function stripHtml(html) {
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      return div.textContent.trim();
+    }
+
+    function renderHome() {
+      const keyword = searchInput.value.trim().toLowerCase();
+      noteList.innerHTML = "";
+      notes
+        .filter((note) => `${note.title} ${stripHtml(note.html)}`.toLowerCase().includes(keyword))
+        .forEach((note) => {
+          const card = document.createElement("article");
+          card.className = "note-card";
+          card.tabIndex = 0;
+          card.innerHTML = `
+            <div class="note-meta">${note.updatedAt.split(" ")[0]}</div>
+            <h2 class="note-title">${note.title || "无标题"}</h2>
+            <div class="note-summary">${note.html}</div>
+            <div class="card-actions">
+              <button class="mini-btn" type="button" data-edit="${note.id}" aria-label="编辑">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"></path></svg>
+              </button>
+              <button class="mini-btn is-danger" type="button" data-delete="${note.id}" aria-label="删除">×</button>
+            </div>
+          `;
+          card.addEventListener("click", (event) => {
+            if (event.target.closest("button")) return;
+            openDetail(note.id, false);
+          });
+          card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") openDetail(note.id, false);
+          });
+          noteList.append(card);
+        });
+
+      noteList.querySelectorAll("[data-edit]").forEach((button) => {
+        button.addEventListener("click", () => openDetail(button.dataset.edit, true));
+      });
+      noteList.querySelectorAll("[data-delete]").forEach((button) => {
+        button.addEventListener("click", () => confirmDelete(button.dataset.delete));
+      });
+    }
+
+    function switchView(view) {
+      homeView.classList.toggle("is-active", view === "home");
+      detailView.classList.toggle("is-active", view === "detail");
+      state.route = view;
+    }
+
+    function openDetail(id, editing) {
+      state.activeId = id;
+      switchView("detail");
+      setEditing(editing);
+      renderDetail();
+      if (editing) {
+        requestAnimationFrame(() => titleInput.focus());
+      }
+    }
+
+    function setEditing(editing) {
+      state.editing = editing;
+      previewPane.classList.toggle("hidden", editing);
+      editorPane.classList.toggle("hidden", !editing);
+      editBtn.classList.toggle("hidden", editing);
+      editBtn.classList.toggle("is-primary", editing);
+    }
+
+    function renderDetail() {
+      const note = currentNote();
+      if (!note) return;
+      detailMeta.textContent = `创建 ${note.createdAt} · 更新 ${note.updatedAt}`;
+      previewTitle.textContent = note.title || "无标题";
+      previewBody.innerHTML = note.html || "<p>暂无内容</p>";
+      titleInput.value = note.title;
+      editor.innerHTML = note.html;
+      saveState.textContent = state.editing ? "已保存" : "预览中";
+    }
+
+    function autoSave() {
+      const note = currentNote();
+      if (!note) return;
+      note.title = titleInput.value.trim();
+      note.html = editor.innerHTML;
+      note.updatedAt = "刚刚";
+      saveState.textContent = "保存中...";
+      clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(() => {
+        saveState.textContent = "已保存";
+        renderHome();
+      }, 420);
+    }
+
+    function backHome() {
+      const note = currentNote();
+      if (note && state.editing) autoSave();
+      for (let index = notes.length - 1; index >= 0; index -= 1) {
+        const candidate = notes[index];
+        if (!candidate.title.trim() && !stripHtml(candidate.html)) notes.splice(index, 1);
+      }
+      state.activeId = null;
+      state.editing = false;
+      switchView("home");
+      renderHome();
+    }
+
+    function createNote() {
+      const note = {
+        id: `n${Date.now()}`,
+        title: "",
+        createdAt: "刚刚",
+        updatedAt: "刚刚",
+        html: ""
+      };
+      notes.unshift(note);
+      openDetail(note.id, true);
+    }
+
+    function confirmDelete(id) {
+      const target = notes.find((note) => note.id === id);
+      if (!target) return;
+      const ok = window.confirm(`确认删除「${target.title || "无标题"}」吗？`);
+      if (!ok) return;
+      const index = notes.findIndex((note) => note.id === id);
+      if (index >= 0) notes.splice(index, 1);
+      if (state.activeId === id) backHome();
+      renderHome();
+    }
+
+    function runCommand(command) {
+      document.execCommand(command, false, null);
+      editor.focus();
+      autoSave();
+    }
+
+    document.querySelectorAll("[data-command]").forEach((button) => {
+      button.addEventListener("click", () => runCommand(button.dataset.command));
+    });
+
+    document.querySelectorAll(".tool-option[data-format]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.execCommand("formatBlock", false, button.dataset.format);
+        editor.focus();
+        closeHeadingMenu();
+        updateToolbarState();
+        autoSave();
+      });
+    });
+
+    headingBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const shouldOpen = headingDropdown.hidden;
+      headingDropdown.hidden = !shouldOpen;
+      headingBtn.setAttribute("aria-expanded", String(shouldOpen));
+    });
+
+    document.querySelector("[data-action='quote']").addEventListener("click", () => {
+      document.execCommand("formatBlock", false, "blockquote");
+      editor.focus();
+      autoSave();
+    });
+
+    document.querySelector("[data-action='todo']").addEventListener("click", () => {
+      document.execCommand("insertHTML", false, "<ul><li>☐ 待办事项</li></ul>");
+      editor.focus();
+      autoSave();
+    });
+
+    document.querySelector("[data-action='image']").addEventListener("click", () => {
+      imageInput.click();
+    });
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        document.execCommand("insertHTML", false, `<img src="${reader.result}" alt="${file.name}">`);
+        saveState.textContent = "图片已加入笔记资源目录";
+        autoSave();
+      };
+      reader.readAsDataURL(file);
+      imageInput.value = "";
+    });
+
+    createBtn.addEventListener("click", createNote);
+    searchInput.addEventListener("input", renderHome);
+    backBtn.addEventListener("click", backHome);
+    editBtn.addEventListener("click", () => {
+      setEditing(true);
+      renderDetail();
+      requestAnimationFrame(() => titleInput.focus());
+    });
+    deleteBtn.addEventListener("click", () => confirmDelete(state.activeId));
+    titleInput.addEventListener("input", autoSave);
+    editor.addEventListener("input", autoSave);
+    editor.addEventListener("keyup", updateToolbarState);
+    editor.addEventListener("mouseup", updateToolbarState);
+
+    function updateToolbarState() {
+      let block = "";
+      try {
+        block = String(document.queryCommandValue("formatBlock") || "").toLowerCase();
+      } catch (error) {
+        block = "";
+      }
+      const normalizedBlock = block || "p";
+      headingBtn.classList.toggle("is-active", ["h1", "h2", "h3"].includes(normalizedBlock));
+      document.querySelectorAll(".tool-option[data-format]").forEach((button) => {
+        button.classList.toggle("is-active", normalizedBlock === button.dataset.format);
+      });
+      document.querySelectorAll("[data-command]").forEach((button) => {
+        const command = button.dataset.command;
+        if (["undo", "redo", "insertHorizontalRule"].includes(command)) return;
+        let active = false;
+        try {
+          active = document.queryCommandState(command);
+        } catch (error) {
+          active = false;
+        }
+        button.classList.toggle("is-active", active);
+      });
+    }
+
+    function closeHeadingMenu() {
+      headingDropdown.hidden = true;
+      headingBtn.setAttribute("aria-expanded", "false");
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !headingDropdown.hidden) {
+        closeHeadingMenu();
+        return;
+      }
+      if (event.key === "Escape" && state.route === "detail") {
+        event.preventDefault();
+        backHome();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!headingMenu.contains(event.target)) closeHeadingMenu();
+    });
+
+    renderHome();
+  </script>
+</body>
+</html>

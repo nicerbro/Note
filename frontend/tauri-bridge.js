@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   const tauri = window.__TAURI__;
   const invoke = tauri && tauri.core && tauri.core.invoke;
   if (typeof invoke !== "function") return;
@@ -18,7 +18,9 @@
 
   window.noteStorage = {
     load: () => invoke("storage_load"),
-    save: (data) => invoke("storage_save", { data })
+    save: (data) => invoke("storage_save", { data }),
+    saveNoteImage: (noteId, fileName, dataUrl) => invoke("note_image_save", { noteId, fileName, dataUrl }),
+    loadNoteImage: (noteId, fileName) => invoke("note_image_load", { noteId, fileName })
   };
 
   window.desktopWindow = {

@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>任务待办扩展原型</title>
+  <style>
+    :root {
+      --panel: #eef1f5;
+      --surface: #ffffff;
+      --field: #f7f8fa;
+      --ink: #30333a;
+      --muted: #8f98a6;
+      --soft: #b9c1cc;
+      --line: #e3e7ee;
+      --active: #3f4048;
+      --danger: #cf4f52;
+      --orange: #d98440;
+      --green: #5e8f75;
+      --blue: #5d7fba;
+      --radius-xl: 16px;
+      --radius-lg: 12px;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #202124;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 14% 10%, rgba(120, 180, 220, 0.16), transparent 28%),
+        linear-gradient(135deg, #222428 0%, #1d1f22 100%);
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .window {
+      width: 849px;
+      height: 1064px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 32px);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px 20px 20px;
+      border: 1px solid #e3e6eb;
+      border-radius: var(--radius-xl);
+      background: var(--panel);
+      overflow: hidden;
+      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.18);
+    }
+
+    .topbar {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 auto;
+    }
+
+    .segmented {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      height: 30px;
+      padding: 2px;
+      border-radius: 999px;
+      background: #f8f9fb;
+    }
+
+    .segment {
+      height: 26px;
+      min-width: 72px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 999px;
+      color: #5a606b;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .segment.active {
+      color: #ffffff;
+      background: var(--active);
+    }
+
+    .window-actions {
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #3f434c;
+      background: #f8f9fb;
+    }
+
+    .icon-btn.dark {
+      color: #ffffff;
+      background: var(--active);
+    }
+
+    .icon-btn svg,
+    .small-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 1.9;
+    }
+
+    .tools {
+      height: 60px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      align-items: end;
+      gap: 20px;
+      flex: 0 0 auto;
+    }
+
+    .search {
+      width: 100%;
+      height: 60px;
+      border: 0;
+      outline: 0;
+      padding: 0 28px;
+      border-radius: 999px;
+      color: var(--ink);
+      background: var(--field);
+      font-size: 22px;
+    }
+
+    .search::placeholder,
+    .placeholder {
+      color: #c1c7d0;
+    }
+
+    .primary {
+      height: 60px;
+      padding: 0 34px;
+      border-radius: 999px;
+      color: #ffffff;
+      background: var(--active);
+      font-size: 22px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .task-board,
+    .task-detail {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-radius: var(--radius-lg);
+      background: transparent;
+    }
+
+    .filters {
+      flex: 0 0 auto;
+      display: grid;
+      gap: 10px;
+      padding: 0 0 10px;
+    }
+
+    .status-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .status-tabs,
+    .chip-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      padding: 4px;
+      border-radius: 999px;
+      background: #f8f9fb;
+    }
+
+    .status-tabs {
+      max-width: 100%;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+
+    .chip-row {
+      background: transparent;
+      padding: 0;
+      gap: 8px;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+
+    .status-tabs::-webkit-scrollbar,
+    .chip-row::-webkit-scrollbar,
+    .task-list::-webkit-scrollbar,
+    .field-area::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+      display: none;
+    }
+
+    .tab,
+    .chip {
+      height: 42px;
+      padding: 0 20px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 18px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: #ffffff;
+      background: var(--active);
+    }
+
+    .chip {
+      height: 34px;
+      padding: 0 14px;
+      color: #68707c;
+      background: #f8f9fb;
+      font-size: 14px;
+    }
+
+    .chip.active {
+      color: #ffffff;
+      background: #5d6470;
+    }
+
+    .summary {
+      color: #8c95a2;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .task-list {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+
+    .task-card {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: start;
+      min-height: 126px;
+      padding: 18px 20px;
+      border-radius: 20px;
+      background: var(--surface);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .task-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(43, 48, 58, 0.06);
+    }
+
+    .task-card.done {
+      opacity: 0.68;
+    }
+
+    .check {
+      width: 24px;
+      height: 24px;
+      display: inline-grid;
+      place-items: center;
+      border: 2px solid #9da8b6;
+      border-radius: 50%;
+      color: #ffffff;
+      background: #ffffff;
+      margin-top: 4px;
+    }
+
+    .task-card.done .check {
+      border-color: var(--active);
+      background: var(--active);
+    }
+
+    .check svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0;
+    }
+
+    .task-card.done .check svg {
+      opacity: 1;
+    }
+
+    .task-main {
+      min-width: 0;
+    }
+
+    .task-title-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .task-title {
+      margin: 0;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #292c33;
+      font-size: 22px;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    .task-card.done .task-title {
+      text-decoration: line-through;
+    }
+
+    .badge {
+      height: 24px;
+      padding: 0 9px;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.high {
+      background: var(--danger);
+    }
+
+    .badge.medium {
+      background: var(--orange);
+    }
+
+    .badge.low {
+      background: var(--green);
+    }
+
+    .badge.doing {
+      background: var(--blue);
+    }
+
+    .task-note {
+      margin: 9px 0 0;
+      color: #68707c;
+      font-size: 15px;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .meta-row,
+    .tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .meta-row {
+      margin-top: 12px;
+      color: #8a94a3;
+      font-size: 13px;
+    }
+
+    .meta-pill {
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: #f4f6f9;
+    }
+
+    .meta-pill.overdue {
+      color: var(--danger);
+      background: #fff0f0;
+    }
+
+    .tags {
+      margin-top: 9px;
+    }
+
+    .tag {
+      height: 22px;
+      padding: 0 8px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      color: #68707c;
+      background: #eef1f5;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.14s ease;
+    }
+
+    .task-card:hover .card-actions,
+    .task-card.is-confirming .card-actions {
+      opacity: 1;
+    }
+
+    .small-icon {
+      width: 32px;
+      height: 32px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #3f434c;
+      background: #f8f9fb;
+    }
+
+    .small-icon.danger {
+      color: var(--danger);
+    }
+
+    .small-icon.confirm {
+      color: #ffffff;
+      background: var(--danger);
+    }
+
+    .detail-head {
+      height: 78px;
+      display: grid;
+      grid-template-columns: 60px minmax(0, 1fr) 60px;
+      align-items: center;
+      gap: 24px;
+      flex: 0 0 auto;
+    }
+
+    .round-action {
+      width: 60px;
+      height: 60px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #30333a;
+      background: #ffffff;
+    }
+
+    .round-action.danger {
+      color: #ffffff;
+      background: var(--danger);
+    }
+
+    .round-action svg {
+      width: 24px;
+      height: 24px;
+      stroke-width: 1.9;
+    }
+
+    .detail-toolbar {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 36px;
+      border-radius: 999px;
+      background: #ffffff;
+    }
+
+    .toolbar-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 10px;
+      color: #33363d;
+      background: transparent;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .toolbar-btn.active,
+    .toolbar-btn:hover {
+      background: #f2f4f7;
+    }
+
+    .toolbar-btn svg {
+      width: 22px;
+      height: 22px;
+      stroke-width: 1.9;
+    }
+
+    .detail-card {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 28px;
+      border-radius: 20px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .title-input {
+      width: 100%;
+      height: 50px;
+      border: 0;
+      outline: 0;
+      color: #292c33;
+      background: transparent;
+      font-size: 28px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      flex: 0 0 auto;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f7f8fa;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    .label {
+      color: #9099a7;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .select,
+    .date-input,
+    .tag-input {
+      width: 100%;
+      height: 32px;
+      border: 0;
+      outline: 0;
+      color: #454b55;
+      background: transparent;
+      font-size: 15px;
+    }
+
+    .field-area {
+      flex: 1;
+      min-height: 0;
+      border: 0;
+      outline: 0;
+      resize: none;
+      padding: 0;
+      color: #4f5662;
+      background: transparent;
+      font-size: 18px;
+      line-height: 1.75;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+
+    .detail-foot {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: space-between;
+      color: #9aa3b0;
+      font-size: 13px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 720px) {
+      .window {
+        padding: 12px;
+      }
+
+      .tools {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .primary,
+      .search {
+        height: 46px;
+        font-size: 16px;
+      }
+
+      .detail-head {
+        grid-template-columns: 46px 1fr 46px;
+        gap: 10px;
+      }
+
+      .round-action {
+        width: 46px;
+        height: 46px;
+      }
+
+      .detail-toolbar {
+        height: 46px;
+        padding: 0 10px;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="window" aria-label="任务待办扩展原型">
+    <header class="topbar">
+      <nav class="segmented" aria-label="模块切换">
+        <button class="segment" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2Z"/><path d="M4 7h3M4 12h3M4 17h3"/></svg>
+          笔记
+        </button>
+        <button class="segment active" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11"/><path d="m4 7 1 1 2-2M4 12l1 1 2-2M4 17l1 1 2-2"/></svg>
+          任务
+        </button>
+      </nav>
+      <div class="window-actions">
+        <button class="icon-btn dark" type="button" aria-label="置顶">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m14 4 6 6-4.2 1.2-3.6 6.8-2.2-2.2-4.8 4.8-1.8-1.8 4.8-4.8L5 11.8l6.8-3.6L14 4Z"/></svg>
+        </button>
+        <button class="icon-btn" type="button" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="tools" id="homeTools">
+      <input class="search" id="search" type="search" placeholder="搜索任务">
+      <button class="primary" id="createTask" type="button">新建任务</button>
+    </section>
+
+    <section class="content">
+      <section class="task-board" id="taskHome">
+        <div class="filters">
+          <div class="status-row">
+            <div class="status-tabs" aria-label="状态筛选">
+              <button class="tab active" type="button" data-filter="all">全部（6）</button>
+              <button class="tab" type="button" data-filter="todo">待完成（3）</button>
+              <button class="tab" type="button" data-filter="doing">进行中（2）</button>
+              <button class="tab" type="button" data-filter="done">已完成（1）</button>
+            </div>
+            <span class="summary">按逾期、今天、高优先级排序</span>
+          </div>
+
+          <div class="chip-row" aria-label="辅助筛选">
+            <button class="chip active" type="button" data-chip="all">全部日期</button>
+            <button class="chip" type="button" data-chip="today">今天</button>
+            <button class="chip" type="button" data-chip="soon">近期</button>
+            <button class="chip" type="button" data-chip="overdue">已逾期</button>
+            <button class="chip" type="button" data-chip="high">高优先级</button>
+            <button class="chip" type="button" data-chip="none">无日期</button>
+          </div>
+        </div>
+
+        <div class="task-list" id="taskList" aria-label="任务列表"></div>
+      </section>
+
+      <section class="task-detail hidden" id="taskDetail" aria-label="任务详情">
+        <div class="detail-head">
+          <button class="round-action" id="backHome" type="button" aria-label="返回">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="detail-toolbar" aria-label="任务快捷设置">
+            <button class="toolbar-btn active" type="button" title="标题">T</button>
+            <button class="toolbar-btn" type="button" title="加粗">B</button>
+            <button class="toolbar-btn" type="button" title="斜体"><em>I</em></button>
+            <button class="toolbar-btn" type="button" title="清单">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            </button>
+            <button class="toolbar-btn" type="button" title="子任务">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11"/><path d="m4 7 1 1 2-2M4 12l1 1 2-2M4 17l1 1 2-2"/></svg>
+            </button>
+            <button class="toolbar-btn" type="button" title="日期">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18"/><path d="M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
+            </button>
+            <button class="toolbar-btn" type="button" title="标签">#</button>
+          </div>
+          <button class="round-action danger" id="deleteDetail" type="button" aria-label="删除任务">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6 18 20H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+          </button>
+        </div>
+
+        <article class="detail-card">
+          <input class="title-input" id="detailTitle" type="text" value="完成项目管理培训作业">
+          <div class="field-grid">
+            <label class="field">
+              <span class="label">状态</span>
+              <select class="select" id="detailStatus">
+                <option value="todo">待完成</option>
+                <option value="doing">进行中</option>
+                <option value="done">已完成</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="label">优先级</span>
+              <select class="select" id="detailPriority">
+                <option value="high">高优先级</option>
+                <option value="medium">中优先级</option>
+                <option value="low">低优先级</option>
+                <option value="none">无优先级</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="label">截止日期</span>
+              <input class="date-input" id="detailDate" type="date" value="2026-05-26">
+            </label>
+            <label class="field">
+              <span class="label">标签</span>
+              <input class="tag-input" id="detailTags" type="text" value="培训, 项目管理">
+            </label>
+          </div>
+          <label class="field full" style="flex: 1; min-height: 0;">
+            <span class="label">备注</span>
+            <textarea class="field-area" id="detailNotes">整理课堂笔记，补齐作业模板，晚上提交。需要检查是否包含风险、里程碑和分工说明。</textarea>
+          </label>
+          <footer class="detail-foot">
+            <span id="saveState">已自动保存</span>
+            <span>Esc 返回任务首页</span>
+          </footer>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const tasks = [
+      {
+        id: 1,
+        title: "项目管理培训-作业",
+        notes: "整理课堂笔记，补齐作业模板，晚上提交。需要检查是否包含风险、里程碑和分工说明。",
+        status: "todo",
+        priority: "high",
+        due: "今天",
+        overdue: true,
+        tags: ["培训", "项目管理"]
+      },
+      {
+        id: 2,
+        title: "智源-UI 走查",
+        notes: "确认任务模块、笔记编辑页和窗口拖拽体验，列出需要修复的优先级。",
+        status: "doing",
+        priority: "medium",
+        due: "明天",
+        overdue: false,
+        tags: ["UI", "走查"]
+      },
+      {
+        id: 3,
+        title: "整理 Tauri 打包说明",
+        notes: "把安装包路径、直接运行路径、不开控制台窗口方案写到 README。",
+        status: "todo",
+        priority: "low",
+        due: "近期",
+        overdue: false,
+        tags: ["文档"]
+      },
+      {
+        id: 4,
+        title: "补充快捷键测试",
+        notes: "验证置顶、关闭、Esc 返回、任务详情切换是否第一次点击就生效。",
+        status: "doing",
+        priority: "high",
+        due: "今天",
+        overdue: false,
+        tags: ["测试"]
+      },
+      {
+        id: 5,
+        title: "清理过期任务",
+        notes: "把已经完成的临时事项移到已完成列表，保留完成时间。",
+        status: "done",
+        priority: "none",
+        due: "无日期",
+        overdue: false,
+        tags: ["整理"]
+      },
+      {
+        id: 6,
+        title: "准备周会问题清单",
+        notes: "记录还需要确认的设计问题，包含任务详情页、提醒、重复任务和标签管理。",
+        status: "todo",
+        priority: "medium",
+        due: "近期",
+        overdue: false,
+        tags: ["会议"]
+      }
+    ];
+
+    const state = {
+      status: "all",
+      chip: "all",
+      search: "",
+      selectedTask: tasks[0]
+    };
+
+    const taskHome = document.querySelector("#taskHome");
+    const taskDetail = document.querySelector("#taskDetail");
+    const homeTools = document.querySelector("#homeTools");
+    const taskList = document.querySelector("#taskList");
+    const search = document.querySelector("#search");
+    const saveState = document.querySelector("#saveState");
+
+    const icons = {
+      check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>',
+      edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>',
+      delete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6 18 20H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>'
+    };
+
+    function priorityLabel(priority) {
+      return {
+        high: "高",
+        medium: "中",
+        low: "低",
+        none: ""
+      }[priority] || "";
+    }
+
+    function statusLabel(status) {
+      return {
+        todo: "待完成",
+        doing: "进行中",
+        done: "已完成"
+      }[status] || "待完成";
+    }
+
+    function matchesChip(task) {
+      if (state.chip === "all") return true;
+      if (state.chip === "today") return task.due === "今天";
+      if (state.chip === "soon") return task.due === "近期" || task.due === "明天";
+      if (state.chip === "overdue") return task.overdue;
+      if (state.chip === "high") return task.priority === "high";
+      if (state.chip === "none") return task.due === "无日期";
+      return true;
+    }
+
+    function renderTasks() {
+      const keyword = state.search.trim().toLowerCase();
+      const visible = tasks.filter((task) => {
+        const byStatus = state.status === "all" || task.status === state.status;
+        const haystack = [task.title, task.notes, task.tags.join(" ")].join(" ").toLowerCase();
+        return byStatus && matchesChip(task) && haystack.includes(keyword);
+      });
+
+      if (!visible.length) {
+        taskList.innerHTML = '<div class="task-card" style="display:grid;place-items:center;color:#98a1ad;min-height:180px;">暂无匹配任务</div>';
+        return;
+      }
+
+      taskList.innerHTML = visible.map((task) => {
+        const priority = priorityLabel(task.priority);
+        const priorityBadge = priority ? `<span class="badge ${task.priority}">${priority}</span>` : "";
+        const doingBadge = task.status === "doing" ? '<span class="badge doing">进行中</span>' : "";
+        const dueClass = task.overdue ? "meta-pill overdue" : "meta-pill";
+        return `
+          <article class="task-card ${task.status === "done" ? "done" : ""}" data-id="${task.id}" tabindex="0">
+            <button class="check" type="button" data-action="toggle" aria-label="切换完成状态">${icons.check}</button>
+            <div class="task-main" data-action="open">
+              <div class="task-title-line">
+                <h3 class="task-title">${task.title}</h3>
+                ${priorityBadge}
+                ${doingBadge}
+              </div>
+              <p class="task-note">${task.notes}</p>
+              <div class="meta-row">
+                <span class="${dueClass}">截止 ${task.due}</span>
+                <span class="meta-pill">${statusLabel(task.status)}</span>
+              </div>
+              <div class="tags">${task.tags.map((tag) => `<span class="tag">#${tag}</span>`).join("")}</div>
+            </div>
+            <div class="card-actions">
+              <button class="small-icon" type="button" data-action="open" aria-label="编辑任务">${icons.edit}</button>
+              <button class="small-icon danger" type="button" data-action="delete" aria-label="删除任务">${icons.delete}</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function openDetail(task = tasks[0]) {
+      state.selectedTask = task;
+      document.querySelector("#detailTitle").value = task.title;
+      document.querySelector("#detailStatus").value = task.status;
+      document.querySelector("#detailPriority").value = task.priority;
+      document.querySelector("#detailTags").value = task.tags.join(", ");
+      document.querySelector("#detailNotes").value = task.notes;
+      taskHome.classList.add("hidden");
+      homeTools.classList.add("hidden");
+      taskDetail.classList.remove("hidden");
+      document.querySelector("#detailTitle").focus();
+    }
+
+    function closeDetail() {
+      taskDetail.classList.add("hidden");
+      taskHome.classList.remove("hidden");
+      homeTools.classList.remove("hidden");
+      renderTasks();
+    }
+
+    function markSaving() {
+      saveState.textContent = "保存中...";
+      window.clearTimeout(markSaving.timer);
+      markSaving.timer = window.setTimeout(() => {
+        saveState.textContent = "已自动保存";
+      }, 420);
+    }
+
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        state.status = button.dataset.filter;
+        renderTasks();
+      });
+    });
+
+    document.querySelectorAll(".chip").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".chip").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        state.chip = button.dataset.chip;
+        renderTasks();
+      });
+    });
+
+    search.addEventListener("input", () => {
+      state.search = search.value;
+      renderTasks();
+    });
+
+    taskList.addEventListener("click", (event) => {
+      const actionEl = event.target.closest("[data-action]");
+      const card = event.target.closest(".task-card");
+      if (!actionEl || !card) return;
+      const task = tasks.find((item) => item.id === Number(card.dataset.id));
+      const action = actionEl.dataset.action;
+
+      if (action === "toggle") {
+        task.status = task.status === "done" ? "todo" : "done";
+        renderTasks();
+      }
+
+      if (action === "open") {
+        openDetail(task);
+      }
+
+      if (action === "delete") {
+        if (card.classList.contains("is-confirming")) {
+          const index = tasks.findIndex((item) => item.id === task.id);
+          tasks.splice(index, 1);
+          renderTasks();
+          return;
+        }
+        document.querySelectorAll(".task-card").forEach((item) => item.classList.remove("is-confirming"));
+        card.classList.add("is-confirming");
+        actionEl.classList.add("confirm");
+      }
+    });
+
+    document.querySelector("#createTask").addEventListener("click", () => {
+      const task = {
+        id: Date.now(),
+        title: "新任务",
+        notes: "",
+        status: "todo",
+        priority: "none",
+        due: "无日期",
+        overdue: false,
+        tags: []
+      };
+      tasks.unshift(task);
+      openDetail(task);
+    });
+
+    document.querySelector("#backHome").addEventListener("click", closeDetail);
+    document.querySelector("#deleteDetail").addEventListener("click", () => {
+      const index = tasks.findIndex((item) => item.id === state.selectedTask.id);
+      if (index >= 0) tasks.splice(index, 1);
+      closeDetail();
+    });
+
+    ["detailTitle", "detailStatus", "detailPriority", "detailDate", "detailTags", "detailNotes"].forEach((id) => {
+      document.querySelector(`#${id}`).addEventListener("input", markSaving);
+      document.querySelector(`#${id}`).addEventListener("change", markSaving);
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !taskDetail.classList.contains("hidden")) {
+        closeDetail();
+      }
+    });
+
+    renderTasks();
+  </script>
+</body>
+</html>
